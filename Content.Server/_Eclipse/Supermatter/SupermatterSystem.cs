@@ -174,6 +174,8 @@ public sealed class SupermatterSystem : EntitySystem
 
     private void Explode(Entity<TransformComponent, SupermatterComponent> ent)
     {
+        ent.Comp2.Exploded = true;
+
         //TODO: Effect 1: Radiation, weakening to all mobs on Z level
 
         // Effect 2: Electrical pulse
@@ -253,105 +255,111 @@ public sealed class SupermatterSystem : EntitySystem
         var query = EntityQueryEnumerator<SupermatterComponent>();
         while (query.MoveNext(out var uid, out var supermatter))
         {
-            if (!transformQuery.TryGetComponent(uid, out var transformComponent))
-            {
-                continue;
-            }
-
-            if (supermatter.Damage > supermatter.ExplosionPoint)
-            {
-                AnnounceWarning((uid, supermatter));
-                Explode((uid, transformComponent, supermatter));
-            }
-            else if (supermatter.Damage > supermatter.EmergencyPoint)
-            {
-                ShiftLight(uid, 7, supermatter.EmergencyColor);
-                if (_timing.CurTime - supermatter.LastWarning >= TimeSpan.FromSeconds(supermatter.WarningDelay * 10))
-                {
-                    AnnounceWarning((uid, supermatter));
-                }
-            }
-            else if (supermatter.Damage > supermatter.WarningPoint)
-            {
-                ShiftLight(uid, 5, supermatter.WarningColor);
-                if (_timing.CurTime - supermatter.LastWarning >= TimeSpan.FromSeconds(supermatter.WarningDelay * 10))
-                {
-                    AnnounceWarning((uid, supermatter));
-                }
-            }
-            else
-            {
-                ShiftLight(uid, 4, supermatter.BaseColor);
-            }
-
-            // TODO: grav_pulling
-
-            var mixture = _atmosphere.GetTileMixture((uid, transformComponent), true);
-
-            GasMixture? removed = null;
-            if (mixture is not null)
-                removed = mixture.Remove(supermatter.GasEffeciency * mixture.TotalMoles);
-
-            supermatter.DamageAccumulator += frameTime;
-
-            if (mixture is null || removed is null || removed.TotalMoles == 0)
-            {
-                if (supermatter.DamageAccumulator >= supermatter.DamageFrequency)
-                {
-                    supermatter.DamageArchived = supermatter.Damage;
-                    supermatter.Damage = Math.Max((supermatter.Power - 15 * supermatter.PowerFactor) / 10, 0);
-                    supermatter.DamageAccumulator -= supermatter.DamageFrequency;
-                }
-            }
-            // TODO: grav_pulling
-            else
-            {
-                var damageIncreaseLimit = (supermatter.Power / 300) * (supermatter.ExplosionPoint / 1000) * supermatter.DamageRateLimit;
-
-                if (supermatter.DamageAccumulator >= supermatter.DamageFrequency)
-                {
-                    supermatter.DamageArchived = supermatter.Damage;
-                    supermatter.Damage = Math.Max(0, supermatter.Damage + Math.Clamp((removed.Temperature - supermatter.CriticalTemperature) / 150, -supermatter.DamageRateLimit, damageIncreaseLimit));
-                    supermatter.DamageAccumulator -= supermatter.DamageFrequency;
-                }
-
-                var oxygen = Math.Clamp((removed.GetMoles(Gas.Oxygen) - (removed.GetMoles(Gas.Nitrogen) * supermatter.NitrogenRetardationFactor)) / removed.TotalMoles, 0, 1);
-                float equilibriumPower;
-                if (oxygen > 0.8)
-                {
-                    equilibriumPower = 400;
-                    _appearance.SetData(uid, SupermatterVisualState.Glowing, true);
-                }
-                else
-                {
-                    equilibriumPower = 250;
-                    _appearance.SetData(uid, SupermatterVisualState.Glowing, false);
-                }
-
-                var tempFactor = (float)Math.Pow(equilibriumPower / supermatter.DecayFactor, 3) / 800;
-                supermatter.Power = Math.Max((removed.Temperature * tempFactor) * oxygen + supermatter.Power, 0);
-
-                var deviceEnergy = supermatter.Power * supermatter.ReactionPowerModifier * frameTime * 2;
-
-                removed.AdjustMoles(Gas.Plasma, Math.Max(deviceEnergy / supermatter.PlasmaReleaseModifier, 0));
-                removed.AdjustMoles(Gas.Oxygen, Math.Max((deviceEnergy + removed.Temperature - Atmospherics.T0C) / supermatter.OxygenReleaseModifier, 0));
-
-                var thermal_power = supermatter.ThermalReleaseModifier * deviceEnergy;
-
-                _atmosphere.AddHeat(removed, thermal_power);
-                _atmosphere.Merge(mixture, removed);
-            }
-
-            // TODO: hallucination
-
-            if (radiationQuery.TryGetComponent(uid, out var radiationSource))
-            {
-                var radPower = supermatter.Power * supermatter.RadiationReleaseModifier;
-                var range = (float)Math.Min(Math.Round(Math.Sqrt(radPower / 0.15)), 31);
-                radiationSource.Intensity = radPower;
-                radiationSource.Slope = radPower / range * 2;
-            }
-            supermatter.Power -= (float)Math.Pow(supermatter.Power / supermatter.DecayFactor, 3);
+            UpdateSupermatter((uid, supermatter), frameTime, transformQuery, radiationQuery);
         }
+    }
+
+    private void UpdateSupermatter(Entity<SupermatterComponent> ent, float frameTime, EntityQuery<TransformComponent> transformQuery, EntityQuery<RadiationSourceComponent> radiationQuery)
+    {
+        var uid = ent.Owner;
+        var supermatter = ent.Comp;
+
+        if (supermatter.Exploded)
+            return;
+
+        supermatter.UpdateAccumulator += frameTime;
+        if (supermatter.UpdateAccumulator < supermatter.UpdateFrequency)
+            return;
+        supermatter.UpdateAccumulator -= supermatter.UpdateFrequency;
+
+        if (!transformQuery.TryGetComponent(uid, out var transformComponent))
+        {
+            return;
+        }
+
+        if (supermatter.Damage > supermatter.ExplosionPoint)
+        {
+            AnnounceWarning(ent);
+            Explode((ent.Owner, transformComponent, ent.Comp));
+        }
+        else if (supermatter.Damage > supermatter.EmergencyPoint)
+        {
+            ShiftLight(uid, 7, supermatter.EmergencyColor);
+            if (_timing.CurTime - supermatter.LastWarning >= TimeSpan.FromSeconds(supermatter.WarningDelay * 10))
+            {
+                AnnounceWarning(ent);
+            }
+        }
+        else if (supermatter.Damage > supermatter.WarningPoint)
+        {
+            ShiftLight(uid, 5, supermatter.WarningColor);
+            if (_timing.CurTime - supermatter.LastWarning >= TimeSpan.FromSeconds(supermatter.WarningDelay * 10))
+            {
+                AnnounceWarning(ent);
+            }
+        }
+        else
+        {
+            ShiftLight(uid, 4, supermatter.BaseColor);
+        }
+
+        // TODO: grav_pulling
+
+        var mixture = _atmosphere.GetTileMixture((uid, transformComponent), true);
+
+        GasMixture? removed = null;
+        if (mixture is not null)
+            removed = mixture.Remove(supermatter.GasEffeciency * mixture.TotalMoles);
+
+        if (mixture is null || removed is null || removed.TotalMoles == 0)
+        {
+            supermatter.DamageArchived = supermatter.Damage;
+            supermatter.Damage = Math.Max((supermatter.Power - 15 * supermatter.PowerFactor) / 10, 0);
+        }
+        // TODO: grav_pulling
+        else
+        {
+            var damageIncreaseLimit = (supermatter.Power / 300) * (supermatter.ExplosionPoint / 1000) * supermatter.DamageRateLimit;
+
+            supermatter.DamageArchived = supermatter.Damage;
+            supermatter.Damage = Math.Max(0, supermatter.Damage + Math.Clamp((removed.Temperature - supermatter.CriticalTemperature) / 150, -supermatter.DamageRateLimit, damageIncreaseLimit));
+
+            var oxygen = Math.Clamp((removed.GetMoles(Gas.Oxygen) - (removed.GetMoles(Gas.Nitrogen) * supermatter.NitrogenRetardationFactor)) / removed.TotalMoles, 0, 1);
+            float equilibriumPower;
+            if (oxygen > 0.8)
+            {
+                equilibriumPower = 400;
+                _appearance.SetData(uid, SupermatterVisualState.Glowing, true);
+            }
+            else
+            {
+                equilibriumPower = 250;
+                _appearance.SetData(uid, SupermatterVisualState.Glowing, false);
+            }
+
+            var tempFactor = (float)Math.Pow(equilibriumPower / supermatter.DecayFactor, 3) / 800;
+            supermatter.Power = Math.Max((removed.Temperature * tempFactor) * oxygen + supermatter.Power, 0);
+
+            var deviceEnergy = supermatter.Power * supermatter.ReactionPowerModifier;
+
+            removed.AdjustMoles(Gas.Plasma, Math.Max(deviceEnergy / supermatter.PlasmaReleaseModifier, 0));
+            removed.AdjustMoles(Gas.Oxygen, Math.Max((deviceEnergy + removed.Temperature - Atmospherics.T0C) / supermatter.OxygenReleaseModifier, 0));
+
+            var thermal_power = supermatter.ThermalReleaseModifier * deviceEnergy;
+
+            _atmosphere.AddHeat(removed, thermal_power);
+            _atmosphere.Merge(mixture, removed);
+        }
+
+        // TODO: hallucination
+
+        if (radiationQuery.TryGetComponent(uid, out var radiationSource))
+        {
+            var radPower = supermatter.Power * supermatter.RadiationReleaseModifier;
+            var range = (float)Math.Min(Math.Round(Math.Sqrt(radPower / 0.15)), 31);
+            radiationSource.Intensity = radPower;
+            radiationSource.Slope = radPower / range * 2;
+        }
+        supermatter.Power -= (float)Math.Pow(supermatter.Power / supermatter.DecayFactor, 3);
     }
 }

@@ -18,10 +18,10 @@ public sealed partial class SupermatterComponent : Component
     public float DamageArchived = 0;
 
     [DataField]
-    public float DamageAccumulator = 0;
+    public float UpdateAccumulator = 0;
 
     [DataField]
-    public float DamageFrequency = 1;
+    public float UpdateFrequency = 1;
 
     [DataField]
     public float ExplosionPoint = 1000;
@@ -112,6 +112,9 @@ public sealed partial class SupermatterComponent : Component
 
     [DataField]
     public float BreakSolarPanelDamageValue = 150;
+
+    [DataField]
+    public bool Exploded = false;
 
     public TimeSpan LastWarning = TimeSpan.Zero;
 }
