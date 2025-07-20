@@ -32,3 +32,12 @@ Entries:
     id: 4
     time: "2025-07-19T03:37:22.000000+00:00"
     url: "https://github.com/Project-Eclipse-SS14/Eclipse-Expedition/pull/5"
+  - author: FoLZer
+    changes:
+      - message: Взрыв суперматерии больше не затрагивает другие карты
+        type: Fix
+      - message: Исправлен краш сервера в дебаг режиме при уничтожении всего грида и попытке просмотреть сеть электроэнергии
+        type: Fix
+    id: 5
+    time: "2025-07-20T08:02:54.000000+00:00"
+    url: "https://github.com/Project-Eclipse-SS14/Eclipse-Expedition/pull/6"
