@@ -172,35 +172,44 @@ public sealed class SupermatterSystem : EntitySystem
         _lights.SetColor(uid, color, pointLight);
     }
 
-    private void Explode(Entity<SupermatterComponent> ent)
+    private void Explode(Entity<TransformComponent, SupermatterComponent> ent)
     {
         //TODO: Effect 1: Radiation, weakening to all mobs on Z level
 
         // Effect 2: Electrical pulse
-        var lightQuery = EntityQueryEnumerator<PoweredLightComponent>();
-        while (lightQuery.MoveNext(out var lightEnt, out var light))
+        var lightQuery = EntityQueryEnumerator<TransformComponent, PoweredLightComponent>();
+        while (lightQuery.MoveNext(out var lightEnt, out var transform, out var light))
         {
-            if (_random.Prob(ent.Comp.LightsOverloadChance))
+            if (transform.MapUid != ent.Comp1.MapUid)
+                continue;
+
+            if (_random.Prob(ent.Comp2.LightsOverloadChance))
                 _poweredLight.TryDestroyBulb(lightEnt, light);
         }
-        var apcQuery = EntityQueryEnumerator<ApcComponent>();
-        while (apcQuery.MoveNext(out var uid, out var apc))
+        var apcQuery = EntityQueryEnumerator<TransformComponent, ApcComponent>();
+        while (apcQuery.MoveNext(out var uid, out var transform, out var apc))
         {
+            if (transform.MapUid != ent.Comp1.MapUid)
+                continue;
+
             if (apc.MainBreakerEnabled)
                 _apc.ApcToggleBreaker(uid, apc);
         }
-        var batteryQuery = EntityQueryEnumerator<BatteryComponent>();
+        var batteryQuery = EntityQueryEnumerator<TransformComponent, BatteryComponent>();
         var smesQuery = GetEntityQuery<SmesComponent>();
-        while (batteryQuery.MoveNext(out var uid, out var battery))
+        while (batteryQuery.MoveNext(out var uid, out var transform, out var battery))
         {
+            if (transform.MapUid != ent.Comp1.MapUid)
+                continue;
+
             float chance;
             if (smesQuery.HasComp(uid))
             {
-                chance = ent.Comp.SmesDisableChance;
+                chance = ent.Comp2.SmesDisableChance;
             }
             else
             {
-                chance = ent.Comp.BatteryDisableChance;
+                chance = ent.Comp2.BatteryDisableChance;
             }
             if (_random.Prob(chance))
             {
@@ -209,12 +218,15 @@ public sealed class SupermatterSystem : EntitySystem
         }
 
         // Effect 3: Break solar arrays
-        var solarPanelQuery = EntityQueryEnumerator<SolarPanelComponent, DamageableComponent, DestructibleComponent>();
-        var damageType = _prototypeManager.Index(ent.Comp.BreakSolarPanelDamageType);
-        var damageSpecifier = new DamageSpecifier(damageType, ent.Comp.BreakSolarPanelDamageValue);
-        while (solarPanelQuery.MoveNext(out var uid, out var _, out var damageable, out var _))
+        var solarPanelQuery = EntityQueryEnumerator<TransformComponent, SolarPanelComponent, DamageableComponent, DestructibleComponent>();
+        var damageType = _prototypeManager.Index(ent.Comp2.BreakSolarPanelDamageType);
+        var damageSpecifier = new DamageSpecifier(damageType, ent.Comp2.BreakSolarPanelDamageValue);
+        while (solarPanelQuery.MoveNext(out var uid, out var transform, out var _, out var damageable, out var _))
         {
-            if (_random.Prob(ent.Comp.BreakSolarPanelChance))
+            if (transform.MapUid != ent.Comp1.MapUid)
+                continue;
+
+            if (_random.Prob(ent.Comp2.BreakSolarPanelChance))
             {
                 _damageable.SetDamage(uid, damageable, damageSpecifier);
             }
@@ -249,7 +261,7 @@ public sealed class SupermatterSystem : EntitySystem
             if (supermatter.Damage > supermatter.ExplosionPoint)
             {
                 AnnounceWarning((uid, supermatter));
-                Explode((uid, supermatter));
+                Explode((uid, transformComponent, supermatter));
             }
             else if (supermatter.Damage > supermatter.EmergencyPoint)
             {

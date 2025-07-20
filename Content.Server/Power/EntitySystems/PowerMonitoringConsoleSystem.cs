@@ -172,10 +172,10 @@ internal sealed partial class PowerMonitoringConsoleSystem : SharedPowerMonitori
         var flag = GetFlag(relative);
 
         if (args.Anchored)
-            chunk.PowerCableData[(int) component.CableType] |= flag;
+            chunk.PowerCableData[(int)component.CableType] |= flag;
 
         else
-            chunk.PowerCableData[(int) component.CableType] &= ~flag;
+            chunk.PowerCableData[(int)component.CableType] &= ~flag;
 
         var query = AllEntityQuery<PowerMonitoringCableNetworksComponent, TransformComponent>();
         while (query.MoveNext(out var ent, out var entCableNetworks, out var entXform))
@@ -752,6 +752,19 @@ internal sealed partial class PowerMonitoringConsoleSystem : SharedPowerMonitori
         if (!nodeContainer.Nodes.TryGetValue(nodeName, out var node) ||
             node.ReachableNodes.Count == 0)
         {
+            // Eclipse-Start : Fixes debug crash when the entire grid gets destroyed
+            var toRemove = new RemQueue<EntityUid>();
+            foreach (var k in device.ChildDevices.Keys)
+            {
+                if (Deleted(k))
+                    toRemove.Add(k);
+            }
+            foreach (var k in toRemove)
+            {
+                device.ChildDevices.Remove(k);
+            }
+            // Eclipse-End
+
             // Make a child the new master of the collection if necessary
             if (device.ChildDevices.TryFirstOrNull(out var kvp))
             {
@@ -907,7 +920,7 @@ internal sealed partial class PowerMonitoringConsoleSystem : SharedPowerMonitori
             var relative = SharedMapSystem.GetChunkRelative(tile.GridIndices, ChunkSize);
             var flag = GetFlag(relative);
 
-            chunk.PowerCableData[(int) cable.CableType] |= flag;
+            chunk.PowerCableData[(int)cable.CableType] |= flag;
         }
 
         return allChunks;
@@ -934,7 +947,7 @@ internal sealed partial class PowerMonitoringConsoleSystem : SharedPowerMonitori
             var flag = GetFlag(relative);
 
             if (TryComp<CableComponent>(ent, out var cable))
-                chunk.PowerCableData[(int) cable.CableType] |= flag;
+                chunk.PowerCableData[(int)cable.CableType] |= flag;
         }
 
         Dirty(uid, component);
