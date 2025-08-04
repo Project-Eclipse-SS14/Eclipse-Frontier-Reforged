@@ -1,3 +1,4 @@
+using Content.Shared.Maps;
 using Content.Shared.Trigger.Components.Triggers;
 using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Events;
@@ -11,6 +12,7 @@ public sealed partial class TriggerSystem
         SubscribeLocalEvent<TriggerOnProximityComponent, StartCollideEvent>(OnProximityStartCollide);
         SubscribeLocalEvent<TriggerOnProximityComponent, EndCollideEvent>(OnProximityEndCollide);
         SubscribeLocalEvent<TriggerOnProximityComponent, MapInitEvent>(OnMapInit);
+        SubscribeLocalEvent<TriggerOnProximityComponent, PostMapInitEvent>(OnPostMapInit); // Eclipse
         // Shouldn't need re-anchoring.
         SubscribeLocalEvent<TriggerOnProximityComponent, AnchorStateChangedEvent>(OnProximityAnchor);
     }
@@ -36,9 +38,7 @@ public sealed partial class TriggerSystem
 
     private void OnMapInit(Entity<TriggerOnProximityComponent> ent, ref MapInitEvent args)
     {
-        ent.Comp.Enabled = !ent.Comp.RequiresAnchored || Transform(ent).Anchored;
-
-        SetProximityAppearance(ent);
+        SharedInit(ent); // Eclipse
 
         if (!TryComp<PhysicsComponent>(ent, out var body))
             return;
@@ -53,6 +53,20 @@ public sealed partial class TriggerSystem
 
         Dirty(ent);
     }
+
+    // Eclipse-Start
+    private void OnPostMapInit(Entity<TriggerOnProximityComponent> ent, ref PostMapInitEvent args)
+    {
+        SharedInit(ent);
+    }
+
+    private void SharedInit(Entity<TriggerOnProximityComponent> ent)
+    {
+        ent.Comp.Enabled = !ent.Comp.RequiresAnchored || Transform(ent).Anchored;
+
+        SetProximityAppearance(ent);
+    }
+    // Eclipse-End
 
     private void OnProximityStartCollide(EntityUid uid, TriggerOnProximityComponent component, ref StartCollideEvent args)
     {

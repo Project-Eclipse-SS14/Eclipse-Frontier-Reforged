@@ -2,6 +2,7 @@
 using Content.Shared.Trigger.Components.Triggers;
 using Content.Shared.Examine;
 using Content.Shared.Verbs;
+using Content.Shared.Maps;
 
 namespace Content.Shared.Trigger.Systems;
 
@@ -10,6 +11,7 @@ public sealed partial class TriggerSystem
     private void InitializeTimer()
     {
         SubscribeLocalEvent<RepeatingTriggerComponent, MapInitEvent>(OnRepeatInit);
+        SubscribeLocalEvent<RepeatingTriggerComponent, PostMapInitEvent>(OnRepeatPostInit); // Eclipse
         SubscribeLocalEvent<RandomTimerTriggerComponent, MapInitEvent>(OnRandomInit);
         SubscribeLocalEvent<TimerTriggerComponent, ComponentShutdown>(OnTimerShutdown);
         SubscribeLocalEvent<TimerTriggerComponent, ExaminedEvent>(OnTimerExamined);
@@ -20,9 +22,21 @@ public sealed partial class TriggerSystem
     // set the time of the first trigger after being spawned
     private void OnRepeatInit(Entity<RepeatingTriggerComponent> ent, ref MapInitEvent args)
     {
+        RepeatInit(ent); // Eclipse
+    }
+
+    // Eclipse-Start
+    private void OnRepeatPostInit(Entity<RepeatingTriggerComponent> ent, ref PostMapInitEvent args)
+    {
+        RepeatInit(ent);
+    }
+
+    private void RepeatInit(Entity<RepeatingTriggerComponent> ent)
+    {
         ent.Comp.NextTrigger = _timing.CurTime + ent.Comp.Delay;
         Dirty(ent);
     }
+    // Eclipse-End
 
     private void OnRandomInit(Entity<RandomTimerTriggerComponent> ent, ref MapInitEvent args)
     {
