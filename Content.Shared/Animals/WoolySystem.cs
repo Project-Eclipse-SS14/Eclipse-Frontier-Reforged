@@ -24,7 +24,6 @@ public sealed class WoolySystem : EntitySystem
     {
         base.Initialize();
 
-        SubscribeLocalEvent<WoolyComponent, BeforeFullyEatenEvent>(OnBeforeFullyEaten);
         SubscribeLocalEvent<WoolyComponent, MapInitEvent>(OnMapInit);
         SubscribeLocalEvent<WoolyComponent, PostMapInitEvent>(OnPostMapInit); // Eclipse
         SubscribeLocalEvent<WoolyComponent, EntRemovedFromContainerMessage>(OnEntRemoved);
@@ -90,11 +89,5 @@ public sealed class WoolySystem : EntitySystem
 
             _solutionContainer.TryAddReagent(wooly.Solution.Value, wooly.ReagentId, wooly.Quantity, out _);
         }
-    }
-
-    private void OnBeforeFullyEaten(Entity<WoolyComponent> ent, ref BeforeFullyEatenEvent args)
-    {
-        // don't want moths to delete goats after eating them
-        args.Cancel();
     }
 }

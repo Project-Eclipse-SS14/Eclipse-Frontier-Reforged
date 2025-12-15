@@ -64,7 +64,7 @@ namespace Content.Server.NPC.Systems
             WakeNPC(uid, component);
         }
 
-        public void OnNPCMapInit(EntityUid uid, HTNComponent component, MapInitEvent args)
+        public void OnNPCStartup(EntityUid uid, HTNComponent component, ComponentStartup args)
         {
             NPCInit(uid, component); // Eclipse
         }
@@ -78,6 +78,10 @@ namespace Content.Server.NPC.Systems
         public void NPCInit(EntityUid uid, HTNComponent component)
         {
             component.Blackboard.SetValue(NPCBlackboard.Owner, uid);
+        }
+
+        public void OnNPCMapInit(EntityUid uid, HTNComponent component, MapInitEvent args)
+        {
             WakeNPC(uid, component);
         }
         // Eclipse-End

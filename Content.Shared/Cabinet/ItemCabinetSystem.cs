@@ -49,7 +49,7 @@ public sealed class ItemCabinetSystem : EntitySystem
     private void Init(Entity<ItemCabinetComponent> ent)
     {
         // update at mapinit to avoid copy pasting locked: true and locked: false for each closed/open prototype
-        SetSlotLock(ent, !_openable.IsOpen(ent));
+        SetSlotLock(ent, _openable.IsClosed(ent, null));
     }
     // Eclipse-End
 
