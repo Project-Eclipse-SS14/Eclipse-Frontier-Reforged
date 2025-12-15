@@ -1,8 +1,0 @@
-- type: gamePreset
-  id: Expedition
-  name: expedition-title
-  showInVote: true
-  description: expedition-description
-  rules:
-    - IntenseRoundstartVariation
-    - EndRoundSaveMap
